@@ -27,17 +27,40 @@ function buildMarkers(orders) {
     .sort((a, b) => a.time - b.time)
 }
 
-export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold = 30 }) {
-  const priceRef = useRef(null)
-  const rsiRef   = useRef(null)
-  const refs     = useRef({})
-  const [chartError, setChartError] = useState(null)
+function applyCandles(refs, candles) {
+  const { candleSeries, volSeries, rsiSeries, priceChart, rsiChart } = refs.current
+  if (!candleSeries || !candles.length) return
+  const seen = new Set()
+  const bars = candles
+    .filter(c => { if (seen.has(c.time)) return false; seen.add(c.time); return true })
+    .sort((a, b) => a.time - b.time)
+  candleSeries.setData(bars.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })))
+  volSeries.setData(bars.map(c => ({
+    time: c.time, value: c.volume,
+    color: c.close >= c.open ? '#26a69a44' : '#ef535044',
+  })))
+  const rsiData = bars.filter(c => c.rsi != null).map(c => ({ time: c.time, value: c.rsi }))
+  if (rsiData.length) rsiSeries.setData(rsiData)
+  priceChart.timeScale().fitContent()
+  rsiChart.timeScale().fitContent()
+}
 
-  // Create charts once.
+export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold = 30 }) {
+  const priceRef  = useRef(null)
+  const rsiRef    = useRef(null)
+  const refs      = useRef({})
+  const candleRef = useRef(candles)   // always holds the latest candles
+  const orderRef  = useRef(orders)
+  const [chartReady, setChartReady] = useState(false)
+
+  candleRef.current = candles
+  orderRef.current  = orders
+
+  // Create charts. chartReady drives data effects so they re-run after StrictMode remount.
   useEffect(() => {
     try {
       const priceChart = createChart(priceRef.current, { ...THEME, autoSize: true })
-      const rsiChart   = createChart(rsiRef.current,   {
+      const rsiChart   = createChart(rsiRef.current, {
         ...THEME, autoSize: true,
         rightPriceScale: { ...THEME.rightPriceScale, scaleMargins: { top: 0.1, bottom: 0.1 } },
       })
@@ -73,60 +96,40 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
       rsiChart.timeScale().subscribeVisibleTimeRangeChange(()   => syncFrom(rsiChart, priceChart))
 
       refs.current = { priceChart, rsiChart, candleSeries, volSeries, rsiSeries }
-      return () => { priceChart.remove(); rsiChart.remove() }
+      setChartReady(true)
+
+      return () => {
+        setChartReady(false)
+        refs.current = {}
+        priceChart.remove()
+        rsiChart.remove()
+      }
     } catch (e) {
       console.error('[Chart] init error:', e)
-      setChartError(String(e))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update data whenever candles change.
+  // Apply candle data. Depends on chartReady so it re-runs after StrictMode remount.
   useEffect(() => {
-    const { candleSeries, volSeries, rsiSeries, priceChart, rsiChart } = refs.current
-    if (!candleSeries || !candles.length) return
+    if (!chartReady) return
     try {
-      // Deduplicate and sort by time — LWC throws on duplicate timestamps.
-      const seen = new Set()
-      const bars = candles
-        .filter(c => { if (seen.has(c.time)) return false; seen.add(c.time); return true })
-        .sort((a, b) => a.time - b.time)
-
-      candleSeries.setData(bars.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })))
-      volSeries.setData(bars.map(c => ({
-        time: c.time, value: c.volume,
-        color: c.close >= c.open ? '#26a69a44' : '#ef535044',
-      })))
-      const rsiData = bars.filter(c => c.rsi != null).map(c => ({ time: c.time, value: c.rsi }))
-      if (rsiData.length) rsiSeries.setData(rsiData)
-
-      priceChart.timeScale().fitContent()
-      rsiChart.timeScale().fitContent()
+      applyCandles(refs, candleRef.current)
     } catch (e) {
       console.error('[Chart] setData error:', e)
-      setChartError(String(e))
     }
-  }, [candles])
+  }, [candles, chartReady])
 
   // Update markers.
   useEffect(() => {
+    if (!chartReady) return
     const { candleSeries } = refs.current
     if (!candleSeries) return
     try {
-      candleSeries.setMarkers(buildMarkers(orders))
+      candleSeries.setMarkers(buildMarkers(orderRef.current))
     } catch (e) {
       console.error('[Chart] markers error:', e)
     }
-  }, [orders])
-
-  if (chartError) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, padding: 24 }}>
-        <span style={{ color: '#ef5350', fontSize: 14, fontWeight: 600 }}>Chart error</span>
-        <code style={{ color: '#787b86', fontSize: 11, background: '#1e222d', padding: '8px 12px', borderRadius: 4, maxWidth: 480, wordBreak: 'break-all' }}>{chartError}</code>
-        <button onClick={() => setChartError(null)} style={{ background: '#2196f3', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 4, cursor: 'pointer' }}>Retry</button>
-      </div>
-    )
-  }
+  }, [orders, chartReady])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
