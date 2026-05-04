@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
 
 const THEME = {
-  layout:     { background: { color: '#0d1117' }, textColor: '#7d8590' },
+  layout:     { background: { color: '#0d1117' }, textColor: '#7d8590', attribution: { visible: false } },
   grid:       { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
   crosshair:  { mode: CrosshairMode.Normal },
   timeScale:  { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false },
   rightPriceScale: { borderColor: '#2a2e39' },
+  watermark:  { visible: false },
 }
 
 const fmtPrice = n => n == null ? '—' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
