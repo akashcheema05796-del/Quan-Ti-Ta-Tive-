@@ -61,7 +61,6 @@ export default function App() {
     if (Array.isArray(s)) setSignals(s)
     if (st) {
       setStatus(st)
-      // Sync symbol to bot's trading symbol on first load
       if (!sym && symbolRef.current === 'BTC/USDT' && st.symbol) {
         setSymbol(st.symbol)
         symbolRef.current = st.symbol
@@ -86,8 +85,6 @@ export default function App() {
 
       if (msg.type === 'candle') {
         const bar = msg.data
-        // Only update live price/candles if WS event matches the viewed symbol
-        // (WS only pushes bot's trading symbol)
         setLivePrice(prev => { setPrevPrice(prev); return bar.close })
         setCandles(prev => {
           const idx = prev.findIndex(c => c.time === bar.time)
@@ -141,7 +138,6 @@ export default function App() {
   const rsiOverbought = status?.rsi_overbought ?? 70
   const rsiOversold   = status?.rsi_oversold   ?? 30
 
-  // P&L (only meaningful when viewing the bot's trading symbol)
   const initBalance = 10000
   const usdtBal = status?.paper_balance?.USDT ?? initBalance
   const baseBal  = status?.paper_balance?.[status?.symbol?.split('/')[0]] ?? 0
@@ -151,13 +147,36 @@ export default function App() {
 
   const chartArea = () => {
     if (error && candles.length === 0) return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
-        <span style={{ color: '#ef5350', fontSize: 14 }}>{error}</span>
-        <span style={{ color: '#7d8590', fontSize: 12 }}>Make sure <code>python main.py</code> is running</span>
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexDirection: 'column', gap: 10,
+      }}>
+        <span style={{
+          color: 'var(--red)', fontSize: 13, fontWeight: 600,
+          background: 'rgba(244,63,94,0.1)',
+          border: '1px solid rgba(244,63,94,0.25)',
+          padding: '8px 16px', borderRadius: 'var(--radius)',
+        }}>
+          {error}
+        </span>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>
+          Make sure <code style={{ color: 'var(--muted2)', background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4 }}>python main.py</code> is running
+        </span>
       </div>
     )
     if (candles.length === 0) return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7d8590', fontSize: 14 }}>
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexDirection: 'column', gap: 8,
+        color: 'var(--muted)', fontSize: 13,
+      }}>
+        <span style={{
+          width: 32, height: 32, borderRadius: '50%',
+          border: '2px solid rgba(99,102,241,0.4)',
+          borderTopColor: '#6366f1',
+          animation: 'spin 0.8s linear infinite',
+          display: 'block',
+        }} />
         {connected ? `Loading ${symbol}…` : 'Connecting to bot…'}
       </div>
     )
@@ -178,19 +197,36 @@ export default function App() {
 
       {/* Toolbar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '5px 12px 5px 168px',
-        background: 'var(--bg2)', borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 3,
+        padding: '6px 14px 6px 172px',
+        background: 'rgba(9,12,22,0.7)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid var(--border)',
         flexShrink: 0,
       }}>
-        <span style={{ color: 'var(--muted)', fontSize: 10, marginRight: 6, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>TF</span>
+        <span style={{
+          color: 'var(--muted)', fontSize: 9.5, marginRight: 8,
+          fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase',
+        }}>
+          TF
+        </span>
         {TIMEFRAMES.map(t => (
           <button key={t} className={`tf-btn${tf === t ? ' active' : ''}`} onClick={() => handleTf(t)}>
             {t}
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        {error && <span style={{ color: 'var(--red)', fontSize: 11 }}>{error}</span>}
+        {error && (
+          <span style={{
+            color: 'var(--red)', fontSize: 11, fontWeight: 500,
+            background: 'rgba(244,63,94,0.08)',
+            border: '1px solid rgba(244,63,94,0.2)',
+            padding: '2px 9px', borderRadius: 'var(--radius-pill)',
+          }}>
+            {error}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -206,6 +242,10 @@ export default function App() {
           rsiOverbought={rsiOverbought} rsiOversold={rsiOversold}
         />
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   )
 }

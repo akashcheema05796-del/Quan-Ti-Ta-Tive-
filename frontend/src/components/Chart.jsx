@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
 
 const THEME = {
-  layout:     { background: { color: '#0d1117' }, textColor: '#7d8590', attribution: { visible: false } },
-  grid:       { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
-  crosshair:  { mode: CrosshairMode.Normal },
-  timeScale:  { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false },
-  rightPriceScale: { borderColor: '#2a2e39' },
+  layout:     { background: { color: '#06080f' }, textColor: '#5e6d82', attribution: { visible: false } },
+  grid:       { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+  crosshair:  { mode: CrosshairMode.Normal, vertLine: { color: 'rgba(99,102,241,0.5)', labelBackgroundColor: '#6366f1' }, horzLine: { color: 'rgba(99,102,241,0.5)', labelBackgroundColor: '#6366f1' } },
+  timeScale:  { borderColor: 'rgba(255,255,255,0.07)', timeVisible: true, secondsVisible: false },
+  rightPriceScale: { borderColor: 'rgba(255,255,255,0.07)' },
   watermark:  { visible: false },
 }
 
@@ -24,12 +24,12 @@ function buildMarkers(orders) {
   return [...orders]
     .filter(o => o.status === 'closed' || o.status === 'paper')
     .map(o => {
-      const ts = Math.floor(new Date(o.timestamp).getTime() / 1000)
+      const ts   = Math.floor(new Date(o.timestamp).getTime() / 1000)
       const isBuy = o.side === 'buy'
       return {
         time:     ts,
         position: isBuy ? 'belowBar' : 'aboveBar',
-        color:    isBuy ? '#26a69a' : '#ef5350',
+        color:    isBuy ? '#10b981' : '#f43f5e',
         shape:    isBuy ? 'arrowUp' : 'arrowDown',
         text:     `${isBuy ? 'BUY' : 'SELL'} $${Number(o.price).toFixed(2)}`,
         size:     1,
@@ -48,7 +48,7 @@ function applyCandles(refs, candles) {
   candleSeries.setData(bars.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })))
   volSeries.setData(bars.map(c => ({
     time: c.time, value: c.volume,
-    color: c.close >= c.open ? '#26a69a44' : '#ef535044',
+    color: c.close >= c.open ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)',
   })))
   const rsiData = bars.filter(c => c.rsi != null).map(c => ({ time: c.time, value: c.rsi }))
   if (rsiData.length) rsiSeries.setData(rsiData)
@@ -56,40 +56,44 @@ function applyCandles(refs, candles) {
   rsiChart.timeScale().fitContent()
 }
 
-/* ── OHLCV Hover Overlay ─────────────────────── */
+/* ── OHLCV Hover Overlay ─────────────────────────── */
 function HoverOverlay({ hover }) {
   if (!hover) return null
   const up = hover.close >= hover.open
   return (
     <div style={{
-      position: 'absolute', top: 8, left: 8, zIndex: 10,
+      position: 'absolute', top: 10, left: 10, zIndex: 10,
       display: 'flex', alignItems: 'center', gap: 0,
-      background: '#1c212899', backdropFilter: 'blur(6px)',
-      border: '1px solid #2a2e39', borderRadius: 6,
-      padding: '4px 10px', fontSize: 11,
+      background: 'rgba(9,12,22,0.82)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 10,
+      padding: '5px 12px', fontSize: 11.5,
       pointerEvents: 'none', userSelect: 'none',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
     }}>
-      <span style={{ color: '#7d8590', marginRight: 10 }}>{fmtTime(hover.time)}</span>
-      <OItem label="O" value={fmtPrice(hover.open)}  color="#e6edf3" />
-      <OItem label="H" value={fmtPrice(hover.high)}  color="#26a69a" />
-      <OItem label="L" value={fmtPrice(hover.low)}   color="#ef5350" />
-      <OItem label="C" value={fmtPrice(hover.close)} color={up ? '#26a69a' : '#ef5350'} />
-      {hover.volume != null && <OItem label="Vol" value={fmtVol(hover.volume)} color="#7d8590" />}
-      {hover.rsi   != null && <OItem label="RSI" value={Number(hover.rsi).toFixed(2)} color="#2196f3" />}
+      <span style={{ color: 'var(--muted)', marginRight: 12, fontSize: 11 }}>{fmtTime(hover.time)}</span>
+      <OItem label="O" value={fmtPrice(hover.open)}  color="var(--text)" />
+      <OItem label="H" value={fmtPrice(hover.high)}  color="#10b981" />
+      <OItem label="L" value={fmtPrice(hover.low)}   color="#f43f5e" />
+      <OItem label="C" value={fmtPrice(hover.close)} color={up ? '#10b981' : '#f43f5e'} />
+      {hover.volume != null && <OItem label="Vol" value={fmtVol(hover.volume)} color="var(--muted2)" />}
+      {hover.rsi   != null && <OItem label="RSI" value={Number(hover.rsi).toFixed(2)} color="#818cf8" />}
     </div>
   )
 }
 
 function OItem({ label, value, color }) {
   return (
-    <span style={{ marginRight: 10 }}>
-      <span style={{ color: '#7d8590' }}>{label} </span>
-      <span style={{ color, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    <span style={{ marginRight: 12 }}>
+      <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{label} </span>
+      <span style={{ color, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </span>
   )
 }
 
-/* ── Chart Component ─────────────────────────── */
+/* ── Chart Component ─────────────────────────────── */
 export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold = 30 }) {
   const priceRef  = useRef(null)
   const rsiRef    = useRef(null)
@@ -111,9 +115,9 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
       })
 
       const candleSeries = priceChart.addCandlestickSeries({
-        upColor: '#26a69a', downColor: '#ef5350',
+        upColor: '#10b981', downColor: '#f43f5e',
         borderVisible: false,
-        wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        wickUpColor: '#10b981', wickDownColor: '#f43f5e',
       })
 
       const volSeries = priceChart.addHistogramSeries({
@@ -122,12 +126,12 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
       priceChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.80, bottom: 0 } })
 
       const rsiSeries = rsiChart.addLineSeries({
-        color: '#2196f3', lineWidth: 2,
+        color: '#6366f1', lineWidth: 2,
         priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
       })
-      rsiSeries.createPriceLine({ price: rsiOverbought, color: '#ef5350', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OB' })
-      rsiSeries.createPriceLine({ price: rsiOversold,   color: '#26a69a', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OS' })
-      rsiSeries.createPriceLine({ price: 50,            color: '#2a2e39', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false })
+      rsiSeries.createPriceLine({ price: rsiOverbought, color: '#f43f5e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OB' })
+      rsiSeries.createPriceLine({ price: rsiOversold,   color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OS' })
+      rsiSeries.createPriceLine({ price: 50,            color: 'rgba(255,255,255,0.08)', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false })
 
       let syncing = false
       const syncFrom = (src, dst) => {
@@ -139,7 +143,6 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
       priceChart.timeScale().subscribeVisibleTimeRangeChange(() => syncFrom(priceChart, rsiChart))
       rsiChart.timeScale().subscribeVisibleTimeRangeChange(()   => syncFrom(rsiChart, priceChart))
 
-      // ── Crosshair hover → OHLCV overlay ──
       priceChart.subscribeCrosshairMove(param => {
         if (!param.time || !param.seriesData) { setHover(null); return }
         const candle = param.seriesData.get(candleSeries)
@@ -188,7 +191,7 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      {/* Price chart with hover overlay */}
+      {/* Price chart */}
       <div style={{ flex: '0 0 68%', minHeight: 0, position: 'relative' }}>
         <div ref={priceRef} style={{ width: '100%', height: '100%' }} />
         <HoverOverlay hover={hover} />
@@ -196,13 +199,14 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
 
       {/* RSI divider */}
       <div style={{
-        flex: '0 0 22px', display: 'flex', alignItems: 'center', flexShrink: 0,
-        padding: '0 12px', background: '#161b22',
-        color: '#7d8590', fontSize: 10, fontWeight: 700, letterSpacing: 1.2,
-        borderTop: '1px solid #2a2e39', borderBottom: '1px solid #2a2e39',
+        flex: '0 0 24px', display: 'flex', alignItems: 'center', flexShrink: 0,
+        padding: '0 14px',
+        background: 'rgba(255,255,255,0.018)',
+        color: 'var(--muted)', fontSize: 9.5, fontWeight: 700, letterSpacing: 1.4,
+        borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
         textTransform: 'uppercase',
       }}>
-        RSI — Oversold {rsiOversold} / Overbought {rsiOverbought}
+        RSI &nbsp;·&nbsp; Oversold {rsiOversold} &nbsp;·&nbsp; Overbought {rsiOverbought}
       </div>
 
       <div ref={rsiRef} style={{ flex: 1, minHeight: 0 }} />
