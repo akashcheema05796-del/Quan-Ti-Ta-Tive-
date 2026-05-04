@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Chart from './components/Chart.jsx'
 import Header from './components/Header.jsx'
 import Sidebar from './components/Sidebar.jsx'
+import CryptoList from './components/CryptoList.jsx'
 
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d']
@@ -23,7 +24,8 @@ export default function App() {
   const [status,    setStatus]    = useState(null)
   const [connected, setConnected] = useState(false)
   const [error,     setError]     = useState(null)
-  const [tf,        setTf]        = useState('15m')   // selected timeframe
+  const [tf,        setTf]        = useState('15m')
+  const [symbol,    setSymbol]    = useState('BTC/USDT')
   const [livePrice, setLivePrice] = useState(null)
   const [prevPrice, setPrevPrice] = useState(null)
 
@@ -31,12 +33,15 @@ export default function App() {
   const retryRef   = useRef(null)
   const fetchTimer = useRef(null)
   const tfRef      = useRef(tf)
-  tfRef.current = tf
+  const symbolRef  = useRef(symbol)
+  tfRef.current     = tf
+  symbolRef.current = symbol
 
-  const fetchAll = useCallback(async (timeframe) => {
-    const useTf = timeframe ?? tfRef.current
+  const fetchAll = useCallback(async (timeframe, sym) => {
+    const useTf  = timeframe ?? tfRef.current
+    const useSym = sym ?? symbolRef.current
     const [c, o, s, st] = await Promise.all([
-      fetchJSON(`/api/candles?limit=200&timeframe=${useTf}`),
+      fetchJSON(`/api/candles?limit=200&timeframe=${useTf}&symbol=${encodeURIComponent(useSym)}`),
       fetchJSON('/api/orders?limit=50'),
       fetchJSON('/api/signals?limit=30'),
       fetchJSON('/api/status'),
@@ -49,13 +54,19 @@ export default function App() {
     setError(null)
     if (Array.isArray(c)) {
       setCandles(c)
-      // seed live price from latest close
       const last = c[c.length - 1]
       if (last) { setPrevPrice(null); setLivePrice(last.close) }
     }
     if (Array.isArray(o)) setOrders(o)
     if (Array.isArray(s)) setSignals(s)
-    if (st) setStatus(st)
+    if (st) {
+      setStatus(st)
+      // Sync symbol to bot's trading symbol on first load
+      if (!sym && symbolRef.current === 'BTC/USDT' && st.symbol) {
+        setSymbol(st.symbol)
+        symbolRef.current = st.symbol
+      }
+    }
   }, [])
 
   const connect = useCallback(() => {
@@ -75,7 +86,8 @@ export default function App() {
 
       if (msg.type === 'candle') {
         const bar = msg.data
-        // update live price with animated flash
+        // Only update live price/candles if WS event matches the viewed symbol
+        // (WS only pushes bot's trading symbol)
         setLivePrice(prev => { setPrevPrice(prev); return bar.close })
         setCandles(prev => {
           const idx = prev.findIndex(c => c.time === bar.time)
@@ -112,17 +124,24 @@ export default function App() {
     }
   }, [fetchAll, connect])
 
-  // Refetch candles when timeframe changes
   const handleTf = (newTf) => {
     setTf(newTf)
     setCandles([])
-    fetchAll(newTf)
+    fetchAll(newTf, symbolRef.current)
+  }
+
+  const handleSymbol = (newSymbol) => {
+    setSymbol(newSymbol)
+    setCandles([])
+    setLivePrice(null)
+    setPrevPrice(null)
+    fetchAll(tfRef.current, newSymbol)
   }
 
   const rsiOverbought = status?.rsi_overbought ?? 70
   const rsiOversold   = status?.rsi_oversold   ?? 30
 
-  // P&L
+  // P&L (only meaningful when viewing the bot's trading symbol)
   const initBalance = 10000
   const usdtBal = status?.paper_balance?.USDT ?? initBalance
   const baseBal  = status?.paper_balance?.[status?.symbol?.split('/')[0]] ?? 0
@@ -139,7 +158,7 @@ export default function App() {
     )
     if (candles.length === 0) return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7d8590', fontSize: 14 }}>
-        {connected ? 'Loading candle data…' : 'Connecting to bot…'}
+        {connected ? `Loading ${symbol}…` : 'Connecting to bot…'}
       </div>
     )
     return (
@@ -152,34 +171,35 @@ export default function App() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
       <Header
         status={status} connected={connected}
+        symbol={symbol}
         livePrice={livePrice} prevPrice={prevPrice}
         pnl={pnl} pnlPct={pnlPct}
       />
 
-      {/* Toolbar: timeframe selector */}
+      {/* Toolbar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4,
-        padding: '5px 12px',
+        padding: '5px 12px 5px 168px',
         background: 'var(--bg2)', borderBottom: '1px solid var(--border)',
         flexShrink: 0,
       }}>
-        <span style={{ color: 'var(--muted)', fontSize: 11, marginRight: 6, fontWeight: 600, letterSpacing: 0.5 }}>TF</span>
+        <span style={{ color: 'var(--muted)', fontSize: 10, marginRight: 6, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>TF</span>
         {TIMEFRAMES.map(t => (
-          <button key={t} className={`tf-btn${tf === t ? ' active' : ''}`}
-            onClick={() => handleTf(t)}>
+          <button key={t} className={`tf-btn${tf === t ? ' active' : ''}`} onClick={() => handleTf(t)}>
             {t}
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        {error && (
-          <span style={{ color: 'var(--red)', fontSize: 11 }}>{error}</span>
-        )}
+        {error && <span style={{ color: 'var(--red)', fontSize: 11 }}>{error}</span>}
       </div>
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <CryptoList symbol={symbol} onSymbolChange={handleSymbol} />
+
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {chartArea()}
         </div>
+
         <Sidebar
           status={status} signals={signals} orders={orders}
           livePrice={livePrice} pnl={pnl} pnlPct={pnlPct}

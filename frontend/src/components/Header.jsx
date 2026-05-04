@@ -46,11 +46,12 @@ function PriceDelta({ price, prevPrice }) {
   )
 }
 
-export default function Header({ status, connected, livePrice, prevPrice, pnl, pnlPct }) {
-  const sig  = status?.latest_signal?.signal ?? 'NEUTRAL'
-  const rsi  = status?.latest_signal?.reasoning?.technical_score
-  const s    = SIG[sig] ?? SIG.NEUTRAL
+export default function Header({ status, connected, symbol, livePrice, prevPrice, pnl, pnlPct }) {
+  const sig   = status?.latest_signal?.signal ?? 'NEUTRAL'
+  const rsi   = status?.latest_signal?.reasoning?.technical_score
+  const s     = SIG[sig] ?? SIG.NEUTRAL
   const pnlUp = pnl >= 0
+  const displaySymbol = symbol ?? status?.symbol ?? '—'
 
   return (
     <header style={{
@@ -69,7 +70,7 @@ export default function Header({ status, connected, livePrice, prevPrice, pnl, p
       {/* Symbol + exchange */}
       <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
         <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
-          {status?.symbol ?? 'BTC/USDT'}
+          {displaySymbol}
         </span>
         <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {status?.exchange ?? '—'}

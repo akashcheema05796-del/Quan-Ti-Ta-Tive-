@@ -10,11 +10,12 @@ app = FastAPI(title="Quan-Ti-Ta-Tive API")
 
 
 @app.get("/api/candles")
-async def get_candles(limit: int = 200, timeframe: str = None):
+async def get_candles(limit: int = 200, timeframe: str = None, symbol: str = None):
     if state.exchange is None:
         return []
-    tf = timeframe if timeframe else config.TIMEFRAME
-    df = await state.exchange.fetch_ohlcv(config.SYMBOL, tf, limit=limit)
+    tf  = timeframe if timeframe else config.TIMEFRAME
+    sym = symbol    if symbol    else config.SYMBOL
+    df = await state.exchange.fetch_ohlcv(sym, tf, limit=limit)
     if df.empty:
         return []
     rsi_series = RSIIndicator(close=df["close"], window=config.RSI_PERIOD).rsi()
