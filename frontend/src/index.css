@@ -1,0 +1,29 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #131722;
+  --panel:     #1e222d;
+  --border:    #2a2e39;
+  --text:      #d1d4dc;
+  --muted:     #787b86;
+  --green:     #26a69a;
+  --red:       #ef5350;
+  --blue:      #2196f3;
+  --yellow:    #f0c27f;
+  --font:      'Inter', system-ui, -apple-system, sans-serif;
+  --radius:    6px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
