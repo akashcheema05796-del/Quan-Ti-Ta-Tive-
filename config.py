@@ -5,8 +5,9 @@ load_dotenv()
 
 class Config:
     # Exchange API
-    BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
-    BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
+    EXCHANGE_ID = os.getenv("EXCHANGE_ID", "coinbase")
+    EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY", "")
+    EXCHANGE_API_SECRET = os.getenv("EXCHANGE_API_SECRET", "")
     
     # Paper Trading Flag (ALWAYS TRUE FOR PHASE 0)
     PAPER_TRADING = True 

@@ -49,11 +49,11 @@ An autonomous, agentic trading system with deterministic execution and AI-driven
    ```
 
 4. **Environment Variables:**
-   Copy the example environment file and fill in your Binance Testnet keys.
+   Copy the example environment file and configure your API keys.
    ```bash
    cp .env.example .env
    ```
-   *Note: Get your testnet keys from [Binance Testnet](https://testnet.binance.vision/).*
+   *Note: You can use any CCXT-supported exchange (e.g., Bybit, OKX, Kraken). The bot now also natively handles **Coinbase Advanced Trade (CDP)** keys, including multi-line ECDSA private keys.*
 
 5. **Run the Bot:**
    ```bash

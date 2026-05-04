@@ -5,13 +5,17 @@ from config import config
 
 class ExchangeManager:
     def __init__(self):
-        # We use Binance testnet for paper trading
-        self.exchange = ccxt.binance({
-            'apiKey': config.BINANCE_API_KEY,
-            'secret': config.BINANCE_API_SECRET,
+        # We use a configurable exchange testnet for paper trading (default Bybit)
+        exchange_class = getattr(ccxt, config.EXCHANGE_ID)
+        self.exchange = exchange_class({
+            'apiKey': config.EXCHANGE_API_KEY,
+            'secret': config.EXCHANGE_API_SECRET.replace('\\n', '\n'),
             'enableRateLimit': True,
         })
-        self.exchange.set_sandbox_mode(True)  # VERY IMPORTANT: Testnet mode
+        try:
+            self.exchange.set_sandbox_mode(True)  # VERY IMPORTANT: Testnet mode
+        except ccxt.NotSupported:
+            logger.warning(f"{config.EXCHANGE_ID} does not support sandbox mode via CCXT. It may be connecting to the live API. Please ensure your API keys are correct and you are not risking real funds.")
         
     async def fetch_ohlcv(self, symbol: str, timeframe: str, limit: int = 100) -> pd.DataFrame:
         """Fetches OHLCV data and returns it as a pandas DataFrame."""
