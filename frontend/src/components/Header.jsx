@@ -50,9 +50,11 @@ function PriceDelta({ price, prevPrice }) {
 }
 
 export default function Header({ status, connected, symbol, livePrice, prevPrice, pnl, pnlPct }) {
-  const sig   = status?.latest_signal?.signal ?? 'NEUTRAL'
-  const rsi   = status?.latest_signal?.reasoning?.technical_score
-  const s     = SIG[sig] ?? SIG.NEUTRAL
+  // sig is always one of LONG / SHORT / NEUTRAL due to the ?? fallback; L-6: no
+  // second fallback needed on the SIG lookup.
+  const sig = status?.latest_signal?.signal ?? 'NEUTRAL'
+  const rsi = status?.latest_signal?.reasoning?.technical_score
+  const s   = SIG[sig] ?? SIG.NEUTRAL
   const pnlUp = pnl >= 0
   const displaySymbol = symbol ?? status?.symbol ?? '—'
 

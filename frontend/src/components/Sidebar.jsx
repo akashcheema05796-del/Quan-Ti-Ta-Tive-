@@ -93,6 +93,7 @@ function AnimNum({ value, prefix = '', suffix = '', decimals = 2, color }) {
 export default function Sidebar({ status, signals, orders, livePrice, pnl, pnlPct, rsiOverbought = 70, rsiOversold = 30 }) {
   const balance  = status?.paper_balance ?? {}
   const positions = status?.positions ?? {}
+  // L-2: Derive base and quote directly from the symbol — no fragile key scanning.
   const base  = status?.symbol?.split('/')[0] ?? 'BTC'
   const quote = status?.symbol?.split('/')[1] ?? 'USDT'
   const pos   = positions[status?.symbol]
@@ -179,7 +180,9 @@ export default function Sidebar({ status, signals, orders, livePrice, pnl, pnlPc
           {signals.length === 0
             ? <Empty text="Waiting for signals…" />
             : signals.map((s, i) => (
-              <div key={i} className={i === 0 ? 'slide-right' : ''} style={{
+              // L-3: Use a stable key instead of array index so React reuses DOM
+              // nodes correctly when new signals are prepended at index 0.
+              <div key={`${s.timestamp}-${s.signal}`} className={i === 0 ? 'slide-right' : ''} style={{
                 display: 'flex', alignItems: 'center', gap: 9,
                 padding: '6px 14px',
                 borderBottom: i < signals.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
@@ -226,7 +229,8 @@ export default function Sidebar({ status, signals, orders, livePrice, pnl, pnlPc
             : orders.map((o, i) => {
               const isBuy = o.side === 'buy'
               return (
-                <div key={i} className={i === 0 ? 'slide-right' : ''} style={{
+                // L-3: Stable key from order_id
+                <div key={o.order_id ?? `${o.timestamp}-${o.side}`} className={i === 0 ? 'slide-right' : ''} style={{
                   padding: '7px 14px',
                   borderBottom: i < orders.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   transition: 'background 0.15s ease',

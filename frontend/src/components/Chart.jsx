@@ -129,9 +129,13 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
         color: '#6366f1', lineWidth: 2,
         priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
       })
-      rsiSeries.createPriceLine({ price: rsiOverbought, color: '#f43f5e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OB' })
-      rsiSeries.createPriceLine({ price: rsiOversold,   color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OS' })
-      rsiSeries.createPriceLine({ price: 50,            color: 'rgba(255,255,255,0.08)', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false })
+      // M-9: Store refs to the OB/OS lines so a separate effect can update them
+      // when rsiOverbought / rsiOversold props change without recreating the chart.
+      const obLine = rsiSeries.createPriceLine({ price: rsiOverbought, color: '#f43f5e', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OB' })
+      const osLine = rsiSeries.createPriceLine({ price: rsiOversold,   color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'OS' })
+      rsiSeries.createPriceLine({ price: 50, color: 'rgba(255,255,255,0.08)', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false })
+      refs.current.rsiOBLine = obLine
+      refs.current.rsiOSLine = osLine
 
       let syncing = false
       const syncFrom = (src, dst) => {
@@ -160,7 +164,8 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
         })
       })
 
-      refs.current = { priceChart, rsiChart, candleSeries, volSeries, rsiSeries }
+      refs.current = { priceChart, rsiChart, candleSeries, volSeries, rsiSeries,
+                       rsiOBLine: null, rsiOSLine: null }
       setChartReady(true)
 
       return () => {
@@ -188,6 +193,17 @@ export default function Chart({ candles, orders, rsiOverbought = 70, rsiOversold
     try { candleSeries.setMarkers(buildMarkers(orderRef.current)) }
     catch (e) { console.error('[Chart] markers error:', e) }
   }, [orders, chartReady])
+
+  // M-9: Update RSI threshold lines whenever the props change, without
+  // tearing down and recreating the entire chart.
+  useEffect(() => {
+    if (!chartReady) return
+    const { rsiOBLine, rsiOSLine } = refs.current
+    try {
+      if (rsiOBLine) rsiOBLine.applyOptions({ price: rsiOverbought })
+      if (rsiOSLine) rsiOSLine.applyOptions({ price: rsiOversold })
+    } catch (e) { console.error('[Chart] threshold update error:', e) }
+  }, [rsiOverbought, rsiOversold, chartReady])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

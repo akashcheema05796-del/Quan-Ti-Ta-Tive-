@@ -4,7 +4,8 @@ import Header from './components/Header.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import CryptoList from './components/CryptoList.jsx'
 
-const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+// M-8: Use window.location explicitly — bare `location` breaks in non-browser envs.
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
 const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d']
 
 async function fetchJSON(url) {

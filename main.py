@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import sys
 import time
+from pathlib import Path
+
 import uvicorn
 
 # Force ThreadedResolver on Windows to avoid aiodns DNS issues.
@@ -40,18 +44,19 @@ async def trading_loop(exchange: ExchangeManager, strategy: BaselineStrategy, ex
                 await asyncio.sleep(30)
                 continue
 
-            # Broadcast latest closed candle to WebSocket clients.
-            if len(df) >= 2:
-                last = df.iloc[-2]
+            # M-2: Broadcast the live (in-progress) candle so the dashboard
+            # always shows the current forming bar, not just the last closed one.
+            if len(df) >= 1:
+                live = df.iloc[-1]
                 await app_state.broadcast({
                     "type": "candle",
                     "data": {
-                        "time":   int(df.index[-2].timestamp()),
-                        "open":   float(last["open"]),
-                        "high":   float(last["high"]),
-                        "low":    float(last["low"]),
-                        "close":  float(last["close"]),
-                        "volume": float(last["volume"]),
+                        "time":   int(df.index[-1].timestamp()),
+                        "open":   float(live["open"]),
+                        "high":   float(live["high"]),
+                        "low":    float(live["low"]),
+                        "close":  float(live["close"]),
+                        "volume": float(live["volume"]),
                     },
                 })
 
@@ -63,8 +68,11 @@ async def trading_loop(exchange: ExchangeManager, strategy: BaselineStrategy, ex
 
             await executor.execute_signal(signal_json)
 
-            sleep_s = config.LOOP_INTERVAL if config.LOOP_INTERVAL is not None \
+            sleep_s = (
+                config.LOOP_INTERVAL
+                if config.LOOP_INTERVAL is not None
                 else _seconds_until_next_close(config.timeframe_seconds)
+            )
             logger.debug(f"Sleeping {sleep_s:.0f}s.")
             await asyncio.sleep(sleep_s)
 
@@ -78,14 +86,25 @@ async def trading_loop(exchange: ExchangeManager, strategy: BaselineStrategy, ex
 
 
 async def main():
+    # L-5: Ensure the logs directory exists before attaching the file sink.
+    Path("logs").mkdir(exist_ok=True)
     logger.add("logs/system.log", rotation="10 MB", retention="10 days", level="DEBUG")
+
+    # Validate config early so misconfigurations fail fast with a clear message.
+    try:
+        config.validate()
+    except ValueError as exc:
+        logger.critical(f"Configuration error: {exc}")
+        sys.exit(1)
+
     logger.info(f"Initializing — mode={config.PAPER_MODE} exchange={config.EXCHANGE_ID}")
 
     await db_logger.initialize()
 
     exchange = ExchangeManager()
     strategy = BaselineStrategy()
-    executor = Executor(exchange)
+    # M-11: Pass broadcast function to executor to break the circular import.
+    executor = Executor(exchange, broadcast_fn=app_state.broadcast)
 
     app_state.exchange = exchange
     app_state.executor = executor
@@ -95,16 +114,33 @@ async def main():
     )
     logger.info("API server starting on http://localhost:8000")
 
+    # C-4: Create explicit tasks so if one crashes, the other is cancelled cleanly.
+    loop_task   = asyncio.create_task(trading_loop(exchange, strategy, executor))
+    server_task = asyncio.create_task(server.serve())
+
     try:
-        await asyncio.gather(
-            trading_loop(exchange, strategy, executor),
-            server.serve(),
+        done, pending = await asyncio.wait(
+            [loop_task, server_task],
+            return_when=asyncio.FIRST_EXCEPTION,
         )
+        # If either task raised, propagate it; cancel the survivor.
+        for task in done:
+            if task.exception():
+                logger.critical(f"Fatal task error: {task.exception()}")
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
     except KeyboardInterrupt:
         logger.info("Received exit signal.")
+        loop_task.cancel()
+        server_task.cancel()
     finally:
         logger.info("Shutting down.")
         await exchange.close()
+        await db_logger.close()
 
 
 if __name__ == "__main__":
